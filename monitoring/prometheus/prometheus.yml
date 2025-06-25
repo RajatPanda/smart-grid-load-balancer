@@ -1,0 +1,48 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape metrics from charge request service
+  - job_name: 'charge-request-service'
+    static_configs:
+      - targets: ['charge_request_service:5001']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # Scrape metrics from load balancer
+  - job_name: 'load-balancer'
+    static_configs:
+      - targets: ['load_balancer:5002']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # Scrape metrics from all substations
+  - job_name: 'substations'
+    static_configs:
+      - targets: 
+          - 'substation1:5003'
+          - 'substation2:5003'
+          - 'substation3:5003'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 3s
+
+  # Additional scraping for substation status endpoints
+#  - job_name: 'substation-status'
+#    static_configs:
+#      - targets:
+#          - 'substation1:5003'
+#          - 'substation2:5003'
+#          - 'substation3:5003'
+#    metrics_path: '/status'
+#    scrape_interval: 10s

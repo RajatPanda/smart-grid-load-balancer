@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - smart-grid-network
+    depends_on:
+      - substation1
+      - substation2
+      - substation3
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./monitoring/grafana/dashboard.json:/var/lib/grafana/dashboards/dashboard.json
+      - ./monitoring/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    networks:
+      - smart-grid-network
+    depends_on:
+      - prometheus
+
+  # Load Balancer Service
+  load_balancer:
+    build: ./load_balancer
+    container_name: load_balancer
+    ports:
+      - "5002:5002"
+    environment:
+      - SUBSTATION_URLS=http://substation1:5003,http://substation2:5003,http://substation3:5003
+    networks:
+      - smart-grid-network
+    depends_on:
+      - substation1
+      - substation2
+      - substation3
+    restart: unless-stopped
+
+  # Charge Request Service (Public API)
+  charge_request_service:
+    build: ./charge_request_service
+    container_name: charge_request_service
+    ports:
+      - "5001:5001"
+    networks:
+      - smart-grid-network
+    depends_on:
+      - load_balancer
+    restart: unless-stopped
+
+  # Substation Services (Multiple instances for load balancing)
+  substation1:
+    build: ./substation_service
+    container_name: substation1
+    ports:
+      - "5003:5003"
+    environment:
+      - SUBSTATION_ID=substation-001
+      - MAX_CAPACITY=150
+    networks:
+      - smart-grid-network
+    restart: unless-stopped
+
+  substation2:
+    build: ./substation_service
+    container_name: substation2
+    ports:
+      - "5004:5003"
+    environment:
+      - SUBSTATION_ID=substation-002
+      - MAX_CAPACITY=120
+    networks:
+      - smart-grid-network
+    restart: unless-stopped
+
+  substation3:
+    build: ./substation_service
+    container_name: substation3
+    ports:
+      - "5005:5003"
+    environment:
+      - SUBSTATION_ID=substation-003
+      - MAX_CAPACITY=100
+    networks:
+      - smart-grid-network
+    restart: unless-stopped
+
+#  # Optional: Additional substations for scaling
+#  substation4:
+#    build: ./substation_service
+#    container_name: substation4
+#    ports:
+#      - "5006:5003"
+#    environment:
+#      - SUBSTATION_ID=substation-004
+#      - MAX_CAPACITY=80
+#    networks:
+#      - smart-grid-network
+#    restart: unless-stopped
+#    profiles:
+#      - scale
+
+networks:
+  smart-grid-network:
+    driver: bridge
+
+volumes:
+  grafana-storage:

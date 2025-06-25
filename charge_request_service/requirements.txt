@@ -1,0 +1,5 @@
+Flask
+requests
+prometheus-flask-exporter
+prometheus-client
+flask-prometheus-metrics
